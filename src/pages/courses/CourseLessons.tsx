@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link as RouterLink } from 'react-router-dom';
 import {
   Box, Typography, Accordion, AccordionSummary, AccordionDetails,
-  Button, CircularProgress, Stack, useTheme, alpha
+  Button, CircularProgress, Stack, useTheme, alpha, Drawer
 } from '@mui/material';
-import { BookOpen, ChevronDown, ChevronRight, Code2, CheckCircle2 } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronRight, Code2, CheckCircle2, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 
@@ -43,6 +43,7 @@ export default function CourseLessons() {
   const [apiData, setApiData] = useState<DataStructure | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [mobileSyllabusOpen, setMobileSyllabusOpen] = useState(false);
   const [progress, setProgress] = useState<Record<string, boolean>>({});
   const reSyncProgress = useCallback(() => {
     setProgress(JSON.parse(localStorage.getItem('mooc_global_progress') || '{}'));
@@ -166,6 +167,84 @@ export default function CourseLessons() {
           '&::-webkit-scrollbar': { width: 6 },
           '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 3 }
         }}>
+          {/* Mobile syllabus toggle */}
+          <Box sx={{ display: { xs: 'block', md: 'none' }, mb: 3 }}>
+            <Button
+              onClick={() => setMobileSyllabusOpen(true)}
+              variant="outlined"
+              size="small"
+              startIcon={<BookOpen size={16} />}
+              sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none' }}
+            >
+              {t('lesson.syllabus')}
+            </Button>
+          </Box>
+
+          {/* Mobile syllabus drawer */}
+          <Drawer
+            open={mobileSyllabusOpen}
+            onClose={() => setMobileSyllabusOpen(false)}
+            anchor="left"
+            slotProps={{ paper: { sx: { width: 280, pt: 4, bgcolor: 'background.paper' } } }}
+          >
+            <Box component="aside">
+            <Box sx={{ px: 2, pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <BookOpen size={30} color={theme.palette.primary.main} />
+                <Typography sx={{ fontSize: '1.5rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'text.secondary', flex: 1 }}>
+                  {t('lesson.syllabus')}
+                </Typography>
+                <Box component="button" onClick={() => setMobileSyllabusOpen(false)} sx={{ border: 'none', bgcolor: 'transparent', cursor: 'pointer', display: 'flex', p: 0.5, borderRadius: 1, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.1) } }}>
+                  <X size={24} />
+                </Box>
+              </Box>
+            </Box>
+            {course.content?.map((lesson, index) => (
+              <Accordion key={lesson.id} disableGutters elevation={0} sx={{
+                '&:before': { display: 'none' },
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'transparent',
+              }}>
+                <AccordionSummary expandIcon={<ChevronDown size={30} />} sx={{
+                  px: 2, minHeight: 48,
+                  '& .MuiAccordionSummary-content': { my: 0 },
+                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.5) }
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 800, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+                      {String(index + 1).padStart(2, '0')}
+                    </Typography>
+                    <Typography sx={{ fontSize: '1rem', fontWeight: 600, lineHeight: 1.3, flex: 1 }}>
+                      {getText(lesson.title)}
+                    </Typography>
+                    {progress[`${courseId}_${lesson.id}`] && (
+                      <CheckCircle2 size={16} color={theme.palette.success.main} />
+                    )}
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails sx={{ px: 2, pb: 2, pt: 1 }}>
+                  <Stack spacing={0.5}>
+                    {lesson.subTopics?.map((sub, i) => (
+                      <Button
+                        key={i}
+                        onClick={() => {
+                          setActiveLessonId(lesson.id);
+                          setMobileSyllabusOpen(false);
+                          const el = document.getElementById(`sub-${lesson.id}-${i}`);
+                          if (el) el.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        disableRipple sx={{ justifyContent: 'flex-start', fontSize: '1rem', color: 'text.secondary', textTransform: 'none', minWidth: 0, borderRadius: 1, '&:hover': { color: '#149eca', bgcolor: alpha('#149eca', 0.06) } }}>
+                        {getText(sub.subtitle)}
+                      </Button>
+                    ))}
+                  </Stack>
+                </AccordionDetails>
+              </Accordion>
+            ))}
+            </Box>
+          </Drawer>
+
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
             {/* Breadcrumb */}
             <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 3, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 0.5 }}>
