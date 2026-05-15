@@ -384,7 +384,7 @@ export default function StudentDashboard() {
                           <Box sx={{ position: 'relative' }}>
                             {course.disabled && (
                               <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, bgcolor: 'warning.main', color: 'white', px: 1, py: 0.25, borderRadius: '6px', fontSize: '0.6rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor:'red'}}>
-                                Disabled
+                                PROXIMAMENT
                               </Box>
                             )}
                             <Card onClick={() => !course.disabled && setExpandedCourse(expandedCourse === course.id ? null : course.id)} sx={{ p: { xs: 0.75, md: 3 }, cursor: course.disabled ? 'default' : 'pointer', borderRadius: { xs: 1.5, md: 2 }, bgcolor: 'background.paper', border: '1px solid', borderColor: expandedCourse === course.id ? 'primary.main' : (theme.palette.mode === 'dark' ? '#fff' : '#000'), transition: '0.2s', minWidth: 0, minHeight: { xs: 60, md: 100 }, position: 'relative', zIndex: expandedCourse === course.id ? 50 : 0, width: '100%', opacity: course.disabled ? 0.5 : 1, filter: course.disabled ? 'grayscale(0.8)' : 'none' }}>

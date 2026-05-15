@@ -37,6 +37,9 @@ export default function LessonPage() {
   const [hintVisible, setHintVisible] = useState(false);
   const [hackathonPoints, setHackathonPoints] = useState(0);
   const [fadeKey, setFadeKey] = useState(0);
+  const [hasAttemptedRun, setHasAttemptedRun] = useState(false);
+  const [assistsLeft, setAssistsLeft] = useState(3);
+  const [showResultModal, setShowResultModal] = useState(false);
 
   const lang = (i18n.language?.split('-')[0]) as 'ca' | 'es' | 'en';
   const getText = (field: any): string => {
@@ -64,7 +67,9 @@ export default function LessonPage() {
   };
 
   const handlePrevious = () => { if (currentLessonIndex > 0) goToLesson(currentLessonIndex - 1); };
-  const handleNext = () => { if (course && currentLessonIndex < course.content.length - 1) goToLesson(currentLessonIndex + 1); };
+  const handleNext = () => {
+    if (course) navigate(`/courses/${course.id}`);
+  };
   const codeStorageKey = currentUser ? `code_${currentUser.id}_${courseId}_${lessonId}` : `temp_code_${lessonId}`;
   const getGlobalProgressKey = () => `${courseId}_${lessonId}`;
 
@@ -75,7 +80,7 @@ export default function LessonPage() {
       const globalProgress = JSON.parse(localStorage.getItem('mooc_global_progress') || '{}');
       const key = getGlobalProgressKey();
       if (globalProgress[key]) setStatus('pass'); else setStatus('idle');
-      setConsoleOutput([]); setHintVisible(false); setTimer(60); setIsTimerActive(false); setIsDirty(false); setWasSavedInSession(false);
+      setConsoleOutput([]); setHintVisible(false); setTimer(60); setIsTimerActive(false); setIsDirty(false); setWasSavedInSession(false); setHasAttemptedRun(false); setAssistsLeft(3); setShowResultModal(false);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [baseLesson, mounted, currentUser, courseId, lessonId]);
@@ -83,8 +88,9 @@ export default function LessonPage() {
   useEffect(() => {
     if (currentMode === 'drill' && isTimerActive && timer > 0 && status !== 'pass') {
       timerRef.current = setInterval(() => setTimer((t) => t - 1), 1000);
-    } else if (timer === 0 && currentMode === 'drill') {
-      setStatus('fail'); setIsTimerActive(false); setConsoleOutput(prev => [...prev, "❌ TEMPS EXHAURIT!"]);
+    } else if (timer === 0 && currentMode === 'drill' && status !== 'fail') {
+      setStatus('fail'); setIsTimerActive(false);
+      if (!hasAttemptedRun) window.alert("⏰ Temps esgotat! Has de executar el codi per completar el drill.");
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isTimerActive, timer, currentMode, status]);
@@ -115,18 +121,36 @@ export default function LessonPage() {
     finally { setIsSaving(false); }
   };
 
+  const handleStartDrill = () => {
+    setTimer(60);
+    setIsTimerActive(true);
+    setHasAttemptedRun(false);
+    setConsoleOutput(prev => [...prev, "⏱️ DRILL ACTIVAT! Tens 60 segons!"]);
+  };
+
   const handleRunTests = () => {
     if (currentMode === 'drill' && !isTimerActive && status !== 'pass') return;
+    setHasAttemptedRun(true);
     setConsoleOutput(["[SISTEMA]: Executant..."]);
     const cleanUser = userInput.replace(/\s+/g, '').trim();
     const cleanSol = getText(baseLesson?.solution).replace(/\s+/g, '').trim() || "";
     setTimeout(() => {
-      if (cleanUser.includes(cleanSol)) {
+      const passed = cleanUser.includes(cleanSol);
+      if (passed) {
         setStatus('pass'); setIsTimerActive(false); setConsoleOutput(p => [...p, "✅ COMPLETAT! Molt bé, pots continuar!"]);
         if (currentMode === 'hackathon') setHackathonPoints(pts => pts + 150);
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.8 } });
         handleSaveProgress(true);
       } else { setStatus('fail'); setConsoleOutput(p => [...p, "❌ Revisa el codi"]); }
+      if (courseId === 'Python') {
+        if (currentUser) {
+          const key = `mooc_submissions_${courseId}_${lessonId}`;
+          const existing = JSON.parse(localStorage.getItem(key) || '[]');
+          existing.unshift({ studentId: currentUser.id, studentName: currentUser.name, passed, timestamp: Date.now() });
+          localStorage.setItem(key, JSON.stringify(existing.slice(0, 50)));
+        }
+        setShowResultModal(true);
+      }
     }, 800);
   };
 
@@ -149,7 +173,7 @@ export default function LessonPage() {
         </Box>
         <Box sx={{ display: 'flex', bgcolor: 'action.hover', p: 0.25, borderRadius: 1 }}>
           {(['normal', 'drill', 'assist', 'hackathon'] as Mode[]).map((m) => (
-            <Button key={m} onClick={() => { setCurrentMode(m); setTimer(60); setIsTimerActive(false); }} sx={{ px: 1, py: 0.20, fontSize: 9, minWidth: 28, bgcolor: currentMode === m ? 'primary.main' : 'transparent', color: currentMode === m ? 'white' : 'text.secondary' }}>{m.toUpperCase()}</Button>
+            <Button key={m} onClick={() => { setCurrentMode(m); setTimer(60); setIsTimerActive(false); setAssistsLeft(3); setHintVisible(false); }} sx={{ px: 1, py: 0.20, fontSize: 9, minWidth: 28, bgcolor: currentMode === m ? 'primary.main' : 'transparent', color: currentMode === m ? 'white' : 'text.secondary' }}>{m.toUpperCase()}</Button>
           ))}
         </Box>
         <Button onClick={() => handleSaveProgress(status === 'pass')} disabled={isSaving} sx={{ minWidth: 80, fontSize: 9, color: 'primary.main', fontWeight: 700 }}>{isSaving ? '...' : wasSavedInSession ? t('lesson.saved') : t('lesson.save')}</Button>
@@ -167,20 +191,50 @@ export default function LessonPage() {
         </Box>
 
         {/* 2n: RENDER (Editor) */}
-        <Box sx={{ height: 170, display: 'flex', flexDirection: 'column', bgcolor: '#1e1e1e', width: '100%', flexShrink: 0 }}>
-        <Box sx={{ height: 28, px: 1.5, bgcolor: '#000', display: 'flex', alignItems: 'center', borderBottom: '1px solid #333' }}>
+        <Box sx={{ flex: courseId === 'Python' ? 1 : 'unset', height: courseId === 'Python' ? 'auto' : 170, display: 'flex', flexDirection: 'column', bgcolor: '#1e1e1e', width: '100%', flexShrink: 0 }}>
+        <Box sx={{ height: 28, px: 1.5, bgcolor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #333' }}>
           <Typography sx={{ fontSize: 10, color: '#888', fontWeight: 600 }}>{t('lesson.app_file')}</Typography>
+          {currentMode === 'drill' && !isTimerActive && status !== 'pass' && (
+            <Button onClick={handleStartDrill} size="small" sx={{ minWidth: 44, minHeight: 18, fontSize: 8, bgcolor: '#6366f1', color: '#fff', fontWeight: 700, px: 1, borderRadius: 0.5, '&:hover': { bgcolor: '#4f46e5' } }}>▶ START</Button>
+          )}
+          {currentMode === 'drill' && isTimerActive && (
+            <Typography sx={{ fontSize: 9, color: '#a5b4fc', fontWeight: 700 }}>{timer}s</Typography>
+          )}
         </Box>
-        <Box sx={{ flex: 1, p: 1 }}>
-          <textarea 
-            value={userInput} 
-            onChange={(e) => { setUserInput(e.target.value); setIsDirty(true); }} 
-            style={{ width: '100%', height: '100%', background: 'transparent', color: '#b5e853', fontFamily: "'Fira Code', monospace", border: 'none', resize: 'none', fontSize: '0.85rem', outline: 'none' }} 
-          />
+        <Box sx={{ flex: 1, p: 1, position: 'relative' }}>
+          {courseId === 'Python' && showResultModal ? (
+            <Box sx={{ position: 'absolute', inset: 0, zIndex: 10, bgcolor: '#1e1e1e', display: 'flex', flexDirection: 'column', p: 1.5 }}>
+              <Box sx={{ flex: 1, overflowY: 'auto' }}>
+                {consoleOutput.map((line, i) => (
+                  <Typography key={i} sx={{ fontFamily: 'monospace', fontSize: '0.85rem', mb: 0.5, color: line.includes('✅') || line.includes('🏆') || line.includes('💾') ? '#4ade80' : line.includes('❌') || line.includes('Revisa') ? '#f87171' : line.includes('SISTEMA') ? '#60a5fa' : '#aaa' }}>{'>'} {line}</Typography>
+                ))}
+                  {(() => {
+                    const raw: any[] = JSON.parse(localStorage.getItem(`mooc_submissions_${courseId}_${lessonId}`) || '[]');
+                    const others = raw.filter(s => s.studentId !== currentUser?.id).slice(0, 5);
+                    if (others.length === 0) return null;
+                    return (
+                      <>
+                        <Typography sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#888', mt: 2, mb: 1, borderTop: '1px solid #333', pt: 1 }}>ALTRES ESTUDIANTS:</Typography>
+                        {others.map((s: any, i: number) => (
+                          <Typography key={i} sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: s.passed ? '#4ade80' : '#f87171', mb: 0.25 }}>{s.passed ? '✅' : '❌'} {s.studentName}</Typography>
+                        ))}
+                      </>
+                    );
+                  })()}
+              </Box>
+            </Box>
+          ) : (
+            <textarea 
+              value={userInput} 
+              onChange={(e) => { setUserInput(e.target.value); setIsDirty(true); }} 
+              style={{ width: '100%', height: '100%', background: 'transparent', color: '#b5e853', fontFamily: "'Fira Code', monospace", border: 'none', resize: 'none', fontSize: '0.85rem', outline: 'none' }} 
+            />
+          )}
         </Box>
       </Box>
 
-        {/* 3r: PROMPT (Console) */}
+        {courseId !== 'Python' && (
+        /* 3r: PROMPT (Console) */
         <Box sx={{ height: 170, display: 'flex', flexDirection: 'column', width: '100%', bgcolor: '#000', borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
         <Box sx={{ height: 22, px: 1.5, bgcolor: '#111', display: 'flex', alignItems: 'center' }}>
           <Terminal size={10} style={{ opacity: 0.4, marginRight: 4, color: '#fff' }} />
@@ -200,6 +254,7 @@ export default function LessonPage() {
           )}
         </Box>
       </Box>
+      )}
 
         {/* BOTONS ESTIL */}
       <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000, height: 70, flexShrink: 0, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, bgcolor: 'background.paper', px: 2 }}>
@@ -207,7 +262,7 @@ export default function LessonPage() {
           <ChevronLeft size={20}/>
         </IconButton>
         <Button onClick={handleRunTests} variant="contained" fullWidth sx={{fontWeight: 900, borderRadius: 1, fontSize: 13 }}>{t('lesson.run')}</Button>
-        <IconButton onClick={handleNext} disabled={!course || currentLessonIndex >= course.content.length - 1} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, p: 1 }}>
+        <IconButton onClick={handleNext} disabled={!course} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, p: 1 }}>
           <ChevronRight size={20}/>
         </IconButton>
       </Box>
@@ -231,7 +286,7 @@ export default function LessonPage() {
         </Box>
         <Box sx={{ display: 'flex', bgcolor: 'action.hover', p: 0.5, borderRadius: 2 }}>
           {(['normal', 'drill', 'assist', 'hackathon'] as Mode[]).map((m) => (
-            <Button key={m} onClick={() => { setCurrentMode(m); setTimer(60); setIsTimerActive(false); }}
+            <Button key={m} onClick={() => { setCurrentMode(m); setTimer(60); setIsTimerActive(false); setAssistsLeft(3); setHintVisible(false); }}
               sx={{ px: 1.5, py: 0.25, fontSize: 9, minWidth: 32, minHeight: 28, bgcolor: currentMode === m ? 'primary.main' : 'transparent', color: 'text.primary' }}>
               {m === 'drill' && <Zap size={8} />} {m.toUpperCase()}
             </Button>
@@ -253,7 +308,26 @@ export default function LessonPage() {
               <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', mb: 0.5 }}>{t('lesson.objective')}</Typography>
               <Typography sx={{ fontFamily: 'monospace', fontSize: '1rem' }}>{getText(baseLesson.challenge)}</Typography>
             </Box>
-            {currentMode === 'assist' && <Button fullWidth onClick={() => setHintVisible(!hintVisible)} sx={{ fontSize: '0.75rem', mb: 1.5, minHeight: 32 }}>{hintVisible ? t('lesson.hide_hint') : t('lesson.need_help')}</Button>}
+            {currentMode === 'drill' && (
+              <Box>
+                {isTimerActive ? (
+                  <Box>
+                    <Typography sx={{ fontSize: '2rem', fontWeight: 900, fontFamily: 'monospace', color: timer <= 10 ? '#f87171' : '#a5b4fc' }}>{timer}s</Typography>
+                    <Typography sx={{ fontSize: '0.6rem', color: '#888', textTransform: 'uppercase', letterSpacing: 1 }}>Temps restant</Typography>
+                  </Box>
+                ) : status === 'pass' ? (
+                  <Typography sx={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 700 }}>✅ DRILL COMPLETAT!</Typography>
+                ) : null}
+                {status === 'fail' && !isTimerActive && (
+                  <Typography sx={{ fontSize: '0.7rem', color: '#f87171', mt: 0.5 }}>❌ Temps esgotat — prem START per reintentar</Typography>
+                )}
+              </Box>
+            )}
+            {currentMode === 'assist' && (
+            <Button fullWidth onClick={() => { if (hintVisible) { setHintVisible(false); } else if (assistsLeft > 0) { setHintVisible(true); setAssistsLeft(a => a - 1); } }} disabled={assistsLeft === 0 && !hintVisible} sx={{ fontSize: '0.75rem', mb: 1.5, minHeight: 32 }}>
+              {hintVisible ? t('lesson.hide_hint') : `💡 ${t('lesson.need_help')} (${assistsLeft})`}
+            </Button>
+          )}
             <AnimatePresence>{hintVisible && <motion.div initial={{opacity:0}} animate={{opacity:1}}><Box sx={{ p: 1.5, bgcolor: alpha('#3b82f6',0.1), borderRadius: 1.5, fontSize: '0.75rem', color: '#93c5fd' }}>💡 {getText(baseLesson.solution).slice(0,16)}...</Box></motion.div>}</AnimatePresence>
           </Box>
           {/* Estat de punts - reduced */}
@@ -265,21 +339,48 @@ export default function LessonPage() {
         </Box>
 
         {/* COLUMNA 2: Editor (57%) - reduced header */}
-        <Box ref={contentRef} sx={{ width: '40%', display: 'flex', flexDirection: 'column', bgcolor: '#1e1e1e', minHeight: 0 }}>
+        <Box ref={contentRef} sx={{ flex: courseId === 'Python' ? 1 : 'unset', width: courseId === 'Python' ? '80%' : '40%', display: 'flex', flexDirection: 'column', bgcolor: '#1e1e1e', minHeight: 0 }}>
           <Box sx={{ height: 40, px: 2, bgcolor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #333' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography sx={{ fontSize: 11, color: '#888', fontWeight: 500 }}>{t('lesson.app_file')}</Typography>
-              {currentMode === 'drill' && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: alpha('#6366f1',0.3), px: 1, borderRadius: 0.5 }}><Typography sx={{ fontSize: 10, color: '#a5b4fc' }}>{timer}s</Typography></Box>}
+              {currentMode === 'drill' && !isTimerActive && status !== 'pass' && (
+                <Button onClick={handleStartDrill} size="small" sx={{ minWidth: 50, minHeight: 20, fontSize: 9, bgcolor: '#6366f1', color: '#fff', fontWeight: 700, px: 1, borderRadius: 0.5, '&:hover': { bgcolor: '#4f46e5' } }}>▶ START</Button>
+              )}
+              {currentMode === 'drill' && isTimerActive && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, bgcolor: alpha('#6366f1',0.3), px: 1, borderRadius: 0.5 }}><Typography sx={{ fontSize: 10, color: '#a5b4fc' }}>{timer}s</Typography></Box>}
             </Box>
             <Button onClick={handleRunTests} startIcon={<Play size={10} fill="#000"/>} sx={{ bgcolor: '#fff', color: '#000', height: 28, fontSize: 10, fontWeight: 700, px: 2, borderRadius: 1 }}>{t('lesson.run')}</Button>
           </Box>
-          <motion.div key={fadeKey} initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, display: 'flex' }}>
-            <textarea value={userInput} onChange={(e) => { setUserInput(e.target.value); setIsDirty(true); setWasSavedInSession(false); }}
-              style={{ flex: 1, background: 'transparent', color: '#b5e853', fontFamily: "'Fira Code', 'Consolas', monospace", padding: '1rem', border: 'none', outline: 'none', resize: 'none', fontSize: '0.9rem', lineHeight: 1.6, minHeight: 0 }} />
+          <motion.div key={fadeKey} initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, display: 'flex', position: 'relative' }}>
+            {courseId === 'Python' && showResultModal ? (
+              <Box sx={{ position: 'absolute', inset: 0, zIndex: 10, bgcolor: '#1e1e1e', display: 'flex', flexDirection: 'column', p: 2 }}>
+                <Box sx={{ flex: 1, overflowY: 'auto' }}>
+                  {consoleOutput.map((line, i) => (
+                    <Typography key={i} sx={{ fontFamily: 'monospace', fontSize: '0.9rem', mb: 0.5, color: line.includes('✅') || line.includes('🏆') || line.includes('💾') ? '#4ade80' : line.includes('❌') || line.includes('Revisa') ? '#f87171' : line.includes('SISTEMA') ? '#60a5fa' : '#aaa' }}>{'>'} {line}</Typography>
+                  ))}
+                  {(() => {
+                    const raw: any[] = JSON.parse(localStorage.getItem(`mooc_submissions_${courseId}_${lessonId}`) || '[]');
+                    const others = raw.filter(s => s.studentId !== currentUser?.id).slice(0, 5);
+                    if (others.length === 0) return null;
+                    return (
+                      <>
+                        <Typography sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#888', mt: 2, mb: 1, borderTop: '1px solid #333', pt: 1 }}>ALTRES ESTUDIANTS:</Typography>
+                        {others.map((s: any, i: number) => (
+                          <Typography key={i} sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: s.passed ? '#4ade80' : '#f87171', mb: 0.25 }}>{s.passed ? '✅' : '❌'} {s.studentName}</Typography>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </Box>
+              </Box>
+            ) : (
+              <textarea value={userInput} onChange={(e) => { setUserInput(e.target.value); setIsDirty(true); setWasSavedInSession(false); }}
+                style={{ flex: 1, background: 'transparent', color: '#b5e853', fontFamily: "'Fira Code', 'Consolas', monospace", padding: '1rem', border: 'none', outline: 'none', resize: 'none', fontSize: '0.9rem', lineHeight: 1.6, minHeight: 0 }} />
+            )}
           </motion.div>
         </Box>
 
-        {/* COLUMNA 3: Console (25%) - reduced header */}
+        {courseId !== 'Python' && (
+        /* COLUMNA 3: Console (25%) - reduced header */
         <Box sx={{ width: '40%', borderLeft: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper', minHeight: 0 }}>
           <Box sx={{ height: 40, px: 2, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
             <Terminal size={14} style={{opacity: 0.4, marginRight: 6}} />
@@ -301,12 +402,13 @@ export default function LessonPage() {
             </AnimatePresence>
           </Box>
         </Box>
+        )}
       </Box>
 
       {/* Footer Desktop - reduced */}
       <Box sx={{ height: 56, flexShrink: 0, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, bgcolor: 'background.paper' }}>
         <Button onClick={handlePrevious} disabled={currentLessonIndex <= 0} variant="outlined" sx={{ minWidth: 120, minHeight: 36, fontSize: '0.85rem' }}><ChevronLeft size={18}/> {t('lesson.previous')}</Button>
-        <Button onClick={handleNext} disabled={!course || currentLessonIndex >= course.content.length - 1} variant="outlined" sx={{ minWidth: 120, minHeight: 36, fontSize: '0.85rem' }}>{t('lesson.next')} <ChevronRight size={18}/></Button>
+        <Button onClick={handleNext} disabled={!course} variant="outlined" sx={{ minWidth: 120, minHeight: 36, fontSize: '0.85rem' }}>{t('lesson.next')} <ChevronRight size={18}/></Button>
       </Box>
     </Box>
   );

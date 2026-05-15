@@ -144,17 +144,7 @@ export default function CourseLessons() {
                         const el = document.getElementById(`sub-${lesson.id}-${i}`);
                         if (el) el.scrollIntoView({ behavior: 'smooth' });
                       }}
-                      disableRipple
-                      sx={{
-                        justifyContent: 'flex-start',
-                        fontSize: '1rem',
-                        color: 'text.secondary',
-                        textTransform: 'none',
-                        minWidth: 0,
-                        borderRadius: 1,
-                        '&:hover': { color: '#149eca', bgcolor: alpha('#149eca', 0.06) }
-                      }}
-                    >
+                      disableRipple sx={{justifyContent: 'flEx-start',fontSize: '1rem', color: 'text.secondary',textTransform: 'none', minWidth: 0, borderRadius: 1, '&:hover': { color: '#149eca', bgcolor: alpha('#149eca', 0.06) }}}>
                       {getText(sub.subtitle)}
                     </Button>
                   ))}

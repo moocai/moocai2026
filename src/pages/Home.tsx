@@ -47,15 +47,7 @@ export default function Home() {
       <Hero />
       
       {/* SECCIÓ 2: CURSOS */}
-      <Box 
-        component="section" 
-        id="courses" 
-        sx={{ 
-          position: 'relative',
-          zIndex: 2,
-          py: { xs: 1, md: 10 },
-        }}
-      >
+      <Box component="section" id="courses" sx={{position: 'relative', zIndex: 2, py: { xs: 1, md: 10 }}}>
         <Container maxWidth="lg">
           <motion.div 
             initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.8 }}>

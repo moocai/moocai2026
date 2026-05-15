@@ -37,12 +37,12 @@ export function CourseCard({ course, index }: CourseCardProps) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.1, duration: 0.5, ease: "easeOut" }} viewport={{ once: true }} style={{ height: '100%' }}>
-      <Card sx={{height: '100%', width: {xs: '85%', md: '100%'}, mx: {xs: 'auto', md: 'unset'},display: 'flex',borderColor: theme.palette.mode === 'dark' ? '#8400ff' : 'black', flexDirection: 'column', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)', overflow: 'hidden', opacity: course.disabled ? 0.5 : 1, filter: course.disabled ? 'grayscale(0.8)' : 'none', '&:hover': course.disabled ? {} : {transform: { xs: 'none', md: 'translateY(-15px)' }, boxShadow: '0 0 10px 10px ' + theme.palette.primary.main + '40', borderColor: theme.palette.mode === 'dark' ? '#ffffff' : '#8400ff',bgcolor: theme.palette.mode === 'dark' ? '#fffff' : 'rgba(0,0,0,0.02)',},}}>
+      <Card sx={{height: '100%', width: {xs: '85%', md: '100%'}, mx: {xs: 'auto', md: 'unset'},display: 'flex',borderColor: theme.palette.mode === 'dark' ? '#8400ff' : 'black', flexDirection: 'column', transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)', overflow: 'hidden', opacity: course.disabled ? 0.7 : 1, filter: course.disabled ? 'grayscale(0)' : 'none', '&:hover': course.disabled ? {} : {transform: { xs: 'none', md: 'translateY(-15px)' }, boxShadow: '0 0 10px 10px ' + theme.palette.primary.main + '40', borderColor: theme.palette.mode === 'dark' ? '#ffffff' : '#8400ff',bgcolor: theme.palette.mode === 'dark' ? '#fffff' : 'rgba(0,0,0,0.02)',},}}>
 
           <Box sx={{ p: { xs: 1.5, md: 2 }, pb: 0 }}>
             <Box sx={{position: 'relative', height: {xs: '120px', md: '180px'}, width: '100%',borderRadius: 4, overflow: 'hidden',background: 'linear-gradient(135deg, ' + theme.palette.primary.main + '26 0%, ' + theme.palette.secondary?.main + '33 100%)', display: 'flex',alignItems: 'center', justifyContent: 'center', border: '1px solid', borderColor: theme.palette.mode === 'dark' ? '#8400ff' : 'black'}}>
               {course.disabled && (
-                <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, bgcolor: 'error.main', color: '#fff', px: 1.5, py: 0.5, borderRadius: '6px', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10, bgcolor: 'error.main', color: 'white', px: 1.5, py: 0.5, borderRadius: '6px', fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   PROPERAMENT
                 </Box>
               )}
